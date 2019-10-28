@@ -73,5 +73,146 @@ ggplot(lobster_tidy, aes(sample = size_mm)) +
 
 ```
 
+Now we are going to use the 'lubridate' package to parse dates and times (we are going to make it date class)
+Use the explicit version of this package because it may show up in other packages
+
+First I'm going to add a new column with 'mutate()', that contains my date as an actual date
+mdy is because the date is currently written as month/day/year. The lubridate function automatically puts the date into standard ISO format (YYYY-MM-DD)
+
+```{r}
+lobster_date <- lobster_tidy %>% 
+  mutate(
+    date_new = lubridate::mdy(date)
+  )
+
+
+```
+
+What if I want to sort by month
+
+Now we will Parse 'Date' column to get the different pieces (month, year) separated.
+If object is in 'date' class, use lubridate::month function and it will pull the month. Use label = TRUE to change it to month name
+```{r}
+lobster_parse_date <- lobster_date %>% 
+  mutate(
+    obs_month = lubridate::month(date_new, label = TRUE),
+    obs_year = lubridate::year(date_new)
+  )
+  
+  
+```
+
+
+Now we are going to count lobsters by different groupings using 'count' function
+Let's say I want to count the number of lobsters by year and month
+
+The 'count' function does a 'group_by' then 'summarize', then find the length, then lastly it ungroups  the data
+
+'count' is combination of 'group_by' and 'tally'
+
+```{r}
+
+lobster_ym <- lobster_parse_date %>% 
+  count(obs_year, obs_month) 
+
+lobster_ysite <- lobster_parse_date %>% 
+  count(site, obs_year)
+
+  
+#Now...
+# group by + summarize + n() to create a new table with mean size, and standard deviation function and sample size (n)
+
+lobster_summary <- lobster_parse_date %>% 
+  group_by(site) %>% 
+  summarize(
+    mean_size = mean(size_mm, na.rm = TRUE),
+    sd_size = sd(size_mm, na.rm = TRUE),
+    sample_n = n()
+  )
+  
+
+
+```
+
+
+Next we'll do some confidence intervels and t-tests
+
+Use the 't.test()' function to find confidence intervals and perform t-tests
+
+I wanna find confidence intervals for lobster sizes at isla vista
+use 'pull()' function to pull out the size_mm column into just one vector.
+Calling an indivudal column with using dataframe$columnname will do the same thing as vector
+```{r}
+ivee_lobsters <- lobster_tidy %>% 
+  filter(site == "IVEE") %>% 
+  pull(size_mm)
+
+t.test(ivee_lobsters) # 95% confidence interval that in 95 percent in other samples I theoretically take IO would expdct teh sample mean to fall within this range. 
+
+```
+
+default in onesample t test
+asking ifwe have enough evidence to think that actual value significnatly different than zero
+
+Now....
+Two sample t-test:
+Is there a significant difference in mean lobster lengths between Naples Reef and Mohawk Reef?
+
+
+```{r}
+
+# method one (more tedious)
+
+# pull the vectors
+
+napl_sample <- lobster_tidy %>% 
+  filter(site == "NAPL") %>% 
+  pull(size_mm)
+
+mohk_sample <- lobster_tidy %>% 
+  filter(site == "MOHK") %>% 
+  pull(size_mm)
+
+# Now t test
+mohk_napl_ttest <- t.test(napl_sample, mohk_sample)
+
+mohk_napl_ttest
+
+```
+p value means that there is only a 2.2 x 10 to the minus 16th probability that i could have taken 2 samples from poulations with the same mean and found by random chance, means of my groups that are at least that different 
+
+p value is thep robability. So in our test, the probability is super low so we are going to assume thatwe took samples from populations that actually havedifferent means
+
+inline referencing: 
+
+Mean lobster size differed significantly between Mohawk and Naples reef (t(`r mohk_napl_ttest$parameter`) = 19.849)
+
+Maybe an easier way to do a 2 sample t.test
+t.test function only works with 2 groups, so we need to make the dataframe 2 groups before doing the t test
+```{r}
+# METHOD 2
+
+#create data frame that only has 2 groups I want to compare
+
+lobster_2sample <- lobster_tidy %>% 
+  filter(site %in% c("NAPL", "MOHK"))
+
+ttest_2 <- t.test(size_mm ~ site, data = lobster_2sample)
+
+ttest_2
+
+
+```
+Now lets make a geom_tile heatmap
+
+```{r}
+
+ggplot(lobster_ysite, aes(x = obs_year,
+                          y = site)) +
+  geom_tile(aes(fill = n))
+
+
+
+```
 
 
